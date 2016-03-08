@@ -18,6 +18,8 @@ std::vector<GLint*> faces;
 float g_rotation = 0;
 float g_rotation_speed = 0.2f;
 string display_type = "t";
+
+//Vars for tracking the xyz min/max
 size_t maxx = 0;
 size_t maxy = 0;
 size_t maxz = 0;
@@ -70,15 +72,16 @@ void drawPolygons(){
 }
 
 void display(void){
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClearColor(0.0,0.0,1.0,0.0); //Set clear color to blue
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Clear color buffer and depth buffer
 	glLoadIdentity();
 	gluLookAt( 60,0,0, 0,0,0, 0,0,1);
 
 	glPushMatrix();										
 		glColor3f(1,0,0);
 		glTranslatef(2,0,0);							
-		glRotatef(g_rotation,0,1,0);
-		glRotatef(90,0,1,0);
+		//glRotatef(g_rotation,0,1,0);
+		glRotatef(95,0,1,0);
 		
 		if(display_type.compare("p")==0){
 			drawPoints();
@@ -98,14 +101,6 @@ void display(void){
 	glutSwapBuffers();
 }
 
-void reshape (int w, int h)
-{
-   glViewport (0, 0, (GLsizei) w, (GLsizei) h); 
-   glMatrixMode (GL_PROJECTION);
-   glLoadIdentity ();
-   glFrustum (-1.0, 1.0, -1.0, 1.0, 1.5, 20.0);
-   glMatrixMode (GL_MODELVIEW);
-}
 
 void init(string filename) {
 	//Select projection matrix
@@ -124,25 +119,6 @@ void init(string filename) {
 	glEnable(GL_DEPTH_TEST);
    	glDepthFunc( GL_LEQUAL );
  	glPointSize(10);
-	// specify implementation-specific hints
-	glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );						
- 
-	GLfloat amb_light[] = { 0.1, 0.1, 0.1, 1.0 };
-    GLfloat diffuse[] = { 0.6, 0.6, 0.6, 1 };
-    GLfloat specular[] = { 0.7, 0.7, 0.3, 1 };
-    glLightModelfv( GL_LIGHT_MODEL_AMBIENT, amb_light );
-    glLightfv( GL_LIGHT0, GL_DIFFUSE, diffuse );
-    glLightfv( GL_LIGHT0, GL_SPECULAR, specular );
-    glEnable( GL_LIGHT0 );
-    glEnable( GL_COLOR_MATERIAL );
-    glShadeModel( GL_SMOOTH );
-    glLightModeli( GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE );
-    glDepthFunc( GL_LEQUAL );
-    glEnable( GL_DEPTH_TEST );
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0); 
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-   	//glShadeModel (GL_FLAT);
 
 	//Open each file
 	FILE* cube = fopen(filename.c_str(),"r");
@@ -208,13 +184,13 @@ void parseObjFile(FILE* input){
 			if(f3>maxz){
 				maxz=f3;
 			}
-			if(f1>minx){
+			if(f1<minx){
 				minx = f1;
 			}
-			if(f2>miny){
+			if(f2<miny){
 				miny=f2;
 			}
-			if(f3>minz){
+			if(f3<minz){
 				minz=f3;
 			}
 			arrayfloat[0] = f1;
