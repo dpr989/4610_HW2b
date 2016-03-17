@@ -12,13 +12,13 @@
 #define VIEWING_DISTANCE_MIN  3.0
 using namespace std;
 
+//Function delclarations
 void parseObjFile(FILE* input);
 
-//Vectors for stroing vertices
+//Vectors for storing vertices
 std::vector<GLfloat*> vertices;
 std::vector<GLint*> faces;
 
-int count = 0;
 float g_rotation = 0;
 float g_rotation_speed = 0.2f;
 
@@ -46,6 +46,8 @@ long minz = LONG_MAX;
 //Position of mouse
 int oldX;
 int oldY;
+
+//Distance mouse has moved in x and y
 int vdist;
 int hdist;
 
@@ -53,18 +55,24 @@ int hdist;
 bool LeftIsPressed = false;
 bool RightIsPressed = false;
 
+//User, object transform vars
+GLfloat zoom_factor = 1;
+static GLfloat moveCords[] = {0.0,0.0,0.0};
+
 //Vertical rotation
 int hrotate = 0;
 int vrotate = 0;
 
-GLfloat zoom_factor = 1;
-static GLfloat moveCords[] = {0.0,0.0,0.0};
+//Camera data
+GLfloat aspect;
+GLfloat field_of_view_angle = 90;
 
+//Window info
 struct glutWindow{
 	int width;
 	int height;
 	string title;
-	float field_of_view_angle;
+	//float field_of_view_angle;
 	size_t z_near;
 	size_t z_far;
 };
@@ -168,12 +176,29 @@ void parseObjFile(FILE* input){
 	//cout << "\nThe min x:" << minx << endl <<"The min y:"<< miny << endl << "The min z:" << minz << endl;
 	fclose(input);
 }
+GLfloat objCent_x = 0;
+GLfloat objCent_y = 0;
+GLfloat objCent_z = 0;
+
 
 void display(void){
-	glClearColor(1.0,1.0,1.0,0.0); //Set clear color to blue
+	glClearColor(0,0,0,0.0); //Set clear color 	to blue
+	//glPushMatrix();
+		//glMatrixMode(GL_PROJECTION);
+		//glLoadIdentity();
+		//gluPerspective(field_of_view_angle,aspect,win.z_near,win.z_far);
+	//glPopMatrix();
+	//glfrustum()
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Clear color buffer and depth buffer
-	glMatrixMode(GL_MODELVIEW);
 	
+	//Set up aspect and field of view
+	glPushMatrix();
+	glMatrixMode (GL_PROJECTION);
+   	glLoadIdentity ();
+   	glFrustum (-3.0, 5.0, -3.0, 5.0, 1.0, 20.0);
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
 	//Draw Coordinate System
 	if(1){
 		//Draw enpoints and origin
@@ -216,19 +241,20 @@ void display(void){
 		glScalef(1/scale_factor,1/scale_factor,1/scale_factor);
 		
 		//Zoom in as needed
-		glScalef(g_fViewDistance,g_fViewDistance,g_fViewDistance);
+		glScalef(-g_fViewDistance,-g_fViewDistance,-g_fViewDistance);
 		
+		//TODO: Change it so that obj always rotates around center of obj
 		//Rotate in the x direction
-		glRotatef(hrotate,1,0,0);
+		glRotatef(hrotate,1,objCent_y,objCent_z);
 
 		//Rotate in the y direction
-		glRotatef(vrotate,0,1,0);
+		glRotatef(vrotate,objCent_x,1,objCent_z);
 
 		//Translate the object to the origin
 		glTranslatef(-((maxx+minx)/2),-((maxy+miny)/2),-((maxz+minz)/2));
 		
-		//
-		//glTranslatef(moveCords[0],moveCords[1],moveCords[2]);
+		//move the object around
+		glTranslatef(moveCords[0],moveCords[1],moveCords[2]);
 
 		if(display_type.compare("q")==0){
 			drawPoints();
@@ -242,8 +268,9 @@ void display(void){
 		else{
 			drawPolygons();
 		}
-		
+
 	glPopMatrix();
+	
 	glFlush();
 	glutSwapBuffers();
 }
@@ -257,14 +284,14 @@ void init(string filename) {
 	//Reset projection matrix
 	glLoadIdentity();
 	//Calculate aspect ratio, ex 16:9 (ratio of width to height)
-	GLfloat aspect = (GLfloat) win.width/win.height;
+	aspect = (GLfloat) win.width/win.height;
 	
 	//Setup a perspective projection matrix
-	gluPerspective(80/*win.field_of_view_angle*/, aspect, win.z_near, win.z_far);
+	gluPerspective(field_of_view_angle, aspect, win.z_near, win.z_far);
 	
 	//Look at origin (0,0,0) 
 	//Put the camera 20 units down the x axis (20,0,0)//
-	gluLookAt(1,0,-20, 0,0,0, 0,0,1);
+	gluLookAt(1,0,-10,0,0,0, 0,0,1);
 
 	//Specify with matrix is the current matrix
 	glMatrixMode(GL_MODELVIEW);
@@ -273,71 +300,141 @@ void init(string filename) {
 	glEnable(GL_DEPTH_TEST);
    	glDepthFunc( GL_LEQUAL );
  	
+   	//Lighting stuff
+   	glEnable(GL_LIGHTING | GL_COLOR_MATERIAL);
+
+   	//Light 1 settings
+   	GLfloat diffuse0[]={1.0, 0.0, 0.0, 1.0};
+	GLfloat ambient0[]={1.0, 0.0, 0.0, 1.0};
+	GLfloat specular0[]={1.0, 0.0, 0.0, 1.0}; 
+	GLfloat light0_pos[]={1.0, 2.0, 3,0, 1.0}; 
+
+	//Light 2 settings
+	GLfloat diffuse1[]={1.0, 0.0, 0.0, 1.0};
+	GLfloat ambient1[]={1.0, 0.0, 0.0, 1.0};
+	GLfloat specular1[]={1.0, 0.0, 0.0, 1.0}; 
+	GLfloat light1_pos[]={-1.0, 2.0, 3,0, 1.0}; 
+
+
+	glEnable(GL_LIGHT0); 
+	glLightfv(GL_LIGHT0, GL_POSITION, light0_pos); 
+	glLightfv(GL_LIGHT0, GL_AMBIENT, ambient0); 
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse0); 
+	glLightfv(GL_LIGHT0, GL_SPECULAR, specular0);
+
+	glEnable(GL_LIGHT1); 
+	glLightfv(GL_LIGHT1, GL_POSITION, light1_pos); 
+	glLightfv(GL_LIGHT1, GL_AMBIENT, ambient1); 
+	glLightfv(GL_LIGHT1, GL_DIFFUSE, diffuse1); 
+	glLightfv(GL_LIGHT0, GL_SPECULAR, specular1);
+
+	GLfloat ambient[] = {0.2, 0.2, 0.2, 1.0};
+	GLfloat diffuse[] = {1.0, 0.8, 0.0, 1.0};
+	GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
+
+	GLfloat shine = 100.0;
+
+	glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
+	glMaterialf(GL_FRONT, GL_SHININESS, shine);
 
 	//Open file and fill data structures
 	FILE* objectFile = fopen(filename.c_str(),"r");
 	parseObjFile(objectFile);	
 }
+bool lightsOn = true;
 
 void processKeys(unsigned char key, int x, int y) {
+	//TODO: Turn this if-else nightmare into case-switch
+	//Display mode select
 	//Points
-	//cout << "Processkeys: We have arrived! " << endl;
-	if (key == 'q'){
-		display_type = "q";
-	}
+	if (key == 'q'){ display_type = "q"; }
 	//Wireframe
 	else 
-		if(key == 'w'){
-			display_type = "w";
-		}
+		if(key == 'w'){ display_type = "w";	}
 		//Polygons
 		else 
-			if(key == 'e'){
-				display_type = "e";
-			}
-			else
-				if(key == 'o'){ //moveCords obj away
-					moveCords[2] -= 0.2f; //Down -z axis
-				}else
-					 if(key == 'k'){ //Move obj <-
-					 	moveCords[1] -= 0.2f;
-					 }else
-					 	  if(key == 'l'){ // Move obj towards viewer
-					 	  	moveCords[2] += 0.2f;
-					 	  }else 
-					 	  	   if(key == ';'){ //Move obj ->
-					 	  	   		moveCords[1] += 0.2f;
-					 	  	   }
+			if(key == 'e'){ display_type = "e";	}
+				else
+
+	/*End display mode select*/
+	//Move object
+	if(key == 'o'){ //moveCords obj away
+		moveCords[2] += 0.2f; //Down -z axis
+		objCent_z += 0.2f;
+	}else
+	if(key == 'k'){ //Move obj <-
+		moveCords[1] -= 0.2f;
+		objCent_y -= 0.2f;
+	}else
+	if(key == 'l'){ // Move obj towards viewer
+		moveCords[2] -= 0.2f;
+		objCent_z -= 2.0f;
+	}else 
+	if(key == ';'){ //Move obj ->
+		moveCords[1] += 0.2f;
+		objCent_y += 0.2f;
+	}else
+	if(key == 'i'){ //Move up z axis
+		moveCords[0] += 0.2f;
+		objCent_x += 0.2f;
+	}else
+	if(key == 'p'){
+		moveCords[0] -= 0.2f;
+		objCent_x -= 0.2f;
+	}
+	else //Change aspect ration
+	if(key == 'a'){
+		//aspect += 5f;
+		field_of_view_angle += 1;
+		cout << "field_of_view_angle ="<<field_of_view_angle<<endl;
+	}
+	else
+	if(key == 's'){
+		//aspect -= 5f;
+		field_of_view_angle -= 1;
+		
+	}else
+	if(key == ' '){
+		if(lightsOn){
+			glDisable(GL_LIGHTING);
+			lightsOn = false;
+		}else{
+			glEnable(GL_LIGHTING);
+			lightsOn = true;
+		}
+	}
+	/*End of obj moving*/
+    //Aspect ration, 
 	//Calls the display function again
 	glutPostRedisplay();
 }
-
-int mouseMax_x = INT_MIN;
-int mouseMin_x = INT_MAX;
-int mouseMax_y = INT_MIN;
-int mouseMin_y = INT_MAX;
+//TODO: Make the object rotation more fine tuned???
+//int mouseMax_x = INT_MIN;
+//int mouseMin_x = INT_MAX;
+//int mouseMax_y = INT_MIN;
+//int mouseMin_y = INT_MAX;
 
 void drag(int x, int y){
- 
+ 	//Check if user is trying to rotate object
 	if(LeftIsPressed){
 		
 	  	//Calc v/h dis
-	  	hdist = (x - oldX);
-	  	vdist = (y - oldY);
+	  	hdist = (x - oldX)/2;
+	  	vdist = (y - oldY)/2;
 	  	hrotate += hdist*0.05; //rotate by 10% of horizontal movement 
 	  	vrotate += vdist*0.05; //rotate by 10% of vert movement
 
-	  	//TEST
-	  	cout << "Left is pressed" << endl;
 	    glutPostRedisplay();
     }else 
     	if(RightIsPressed){
     		//Zooming
 	    	g_fViewDistance = (y - oldY) / 3.0;
-	    	if (g_fViewDistance < VIEWING_DISTANCE_MIN)
-	    		g_fViewDistance = VIEWING_DISTANCE_MIN;
+	    	//if (g_fViewDistance < VIEWING_DISTANCE_MIN)
+	    	//	g_fViewDistance = VIEWING_DISTANCE_MIN;
 
-	    	 glutPostRedisplay();
+	    	glutPostRedisplay();
     	}
 }
 
@@ -364,13 +461,13 @@ void processMouseClick(int button, int state, int x, int y){
 int main(int argc, char** argv){
 	win.width = 700;
 	win.height = 700;
-	win.field_of_view_angle = 90;
+	//win.field_of_view_angle = 90;
 	win.z_near = 0.5f;
 	win.z_far = 500.0f;
 	
 	//Set mouse state
-	oldX = 0;
-	oldY = 0;
+	//oldX = 0;
+	//oldY = 0;
 
 	if(argc > 2){
 		display_type = argv[1];
@@ -391,6 +488,7 @@ int main(int argc, char** argv){
   	glutMouseFunc(processMouseClick);
   	glutMotionFunc(drag);
   	glutDisplayFunc(display);
+  	//glutReshapeFunc(reshape);
   	init(filename);
 
   	//glutReshapeFunc(reshape);
