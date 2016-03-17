@@ -67,14 +67,29 @@ int vrotate = 0;
 GLfloat aspect;
 GLfloat field_of_view_angle = 90;
 
+//Light 1 settings
+GLfloat diffuse0[]={1.0, 0.0, 0.0, 1.0};
+GLfloat ambient0[]={1.0, 0.0, 0.0, 1.0};
+GLfloat specular0[]={1.0, 0.0, 0.0, 1.0}; 
+GLfloat light0_pos[]={1.0, 2.0, 3,0, 1.0}; 
+//Light 2 settings
+GLfloat diffuse1[]={1.0, 0.0, 0.0, 1.0};
+GLfloat ambient1[]={1.0, 0.0, 0.0, 1.0};
+GLfloat specular1[]={1.0, 0.0, 0.0, 1.0}; 
+GLfloat light1_pos[]={-1.0, 2.0, 3,0, 1.0}; 
+
+GLfloat ambient[] = {0.2, 0.2, 0.2, 1.0};
+GLfloat diffuse[] = {1.0, 0.8, 0.0, 1.0};
+GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
+
 //Window info
 struct glutWindow{
 	int width;
 	int height;
 	string title;
 	//float field_of_view_angle;
-	size_t z_near;
-	size_t z_far;
+	GLdouble z_near;
+	GLdouble z_far;
 };
 glutWindow win;
 
@@ -108,6 +123,9 @@ void drawPolygons(){
 			glVertex3fv(vertices[faces[i][0] - 1]);
 			glVertex3fv(vertices[faces[i][1] - 1]);
 			glVertex3fv(vertices[faces[i][2] - 1]);
+
+			//Calc normal vectors
+			
 		}
 	glEnd();
 }
@@ -180,25 +198,24 @@ GLfloat objCent_x = 0;
 GLfloat objCent_y = 0;
 GLfloat objCent_z = 0;
 
+GLdouble bottom = -20;
+GLdouble top = 20;
+GLdouble leftCorner = -5.0f;
+GLdouble rightCorner = -5.0f;
 
 void display(void){
 	glClearColor(0,0,0,0.0); //Set clear color 	to blue
-	//glPushMatrix();
-		//glMatrixMode(GL_PROJECTION);
-		//glLoadIdentity();
-		//gluPerspective(field_of_view_angle,aspect,win.z_near,win.z_far);
-	//glPopMatrix();
-	//glfrustum()
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Clear color buffer and depth buffer
 	
 	//Set up aspect and field of view
 	glPushMatrix();
-	glMatrixMode (GL_PROJECTION);
-   	glLoadIdentity ();
-   	glFrustum (-3.0, 5.0, -3.0, 5.0, 1.0, 20.0);
-	glMatrixMode(GL_MODELVIEW);
+	//glMatrixMode (GL_PROJECTION);
+   	//glLoadIdentity ();
+   	//glFrustum (leftCorner,rightCorner,bottom,top,win.z_near,win.z_far);
+	//glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
+	
 	//Draw Coordinate System
 	if(1){
 		//Draw enpoints and origin
@@ -291,7 +308,7 @@ void init(string filename) {
 	
 	//Look at origin (0,0,0) 
 	//Put the camera 20 units down the x axis (20,0,0)//
-	gluLookAt(1,0,-10,0,0,0, 0,0,1);
+	gluLookAt(1,0,-10, 0,0,0, 0,0,1);
 
 	//Specify with matrix is the current matrix
 	glMatrixMode(GL_MODELVIEW);
@@ -301,20 +318,8 @@ void init(string filename) {
    	glDepthFunc( GL_LEQUAL );
  	
    	//Lighting stuff
-   	glEnable(GL_LIGHTING | GL_COLOR_MATERIAL);
-
-   	//Light 1 settings
-   	GLfloat diffuse0[]={1.0, 0.0, 0.0, 1.0};
-	GLfloat ambient0[]={1.0, 0.0, 0.0, 1.0};
-	GLfloat specular0[]={1.0, 0.0, 0.0, 1.0}; 
-	GLfloat light0_pos[]={1.0, 2.0, 3,0, 1.0}; 
-
-	//Light 2 settings
-	GLfloat diffuse1[]={1.0, 0.0, 0.0, 1.0};
-	GLfloat ambient1[]={1.0, 0.0, 0.0, 1.0};
-	GLfloat specular1[]={1.0, 0.0, 0.0, 1.0}; 
-	GLfloat light1_pos[]={-1.0, 2.0, 3,0, 1.0}; 
-
+   	glEnable(GL_LIGHTING);
+   	glEnable(GL_COLOR_MATERIAL);
 
 	glEnable(GL_LIGHT0); 
 	glLightfv(GL_LIGHT0, GL_POSITION, light0_pos); 
@@ -328,9 +333,6 @@ void init(string filename) {
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, diffuse1); 
 	glLightfv(GL_LIGHT0, GL_SPECULAR, specular1);
 
-	GLfloat ambient[] = {0.2, 0.2, 0.2, 1.0};
-	GLfloat diffuse[] = {1.0, 0.8, 0.0, 1.0};
-	GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
 
 	GLfloat shine = 100.0;
 
@@ -385,10 +387,10 @@ void processKeys(unsigned char key, int x, int y) {
 		objCent_x -= 0.2f;
 	}
 	else //Change aspect ration
-	if(key == 'a'){
+	if(key == '.'){
 		//aspect += 5f;
-		field_of_view_angle += 1;
-		cout << "field_of_view_angle ="<<field_of_view_angle<<endl;
+		//field_of_view_angle += 1;
+		//cout << "field_of_view_angle ="<<field_of_view_angle<<endl;
 	}
 	else
 	if(key == 's'){
@@ -399,11 +401,63 @@ void processKeys(unsigned char key, int x, int y) {
 	if(key == ' '){
 		if(lightsOn){
 			glDisable(GL_LIGHTING);
+			glFlush();
 			lightsOn = false;
 		}else{
 			glEnable(GL_LIGHTING);
 			lightsOn = true;
 		}
+	}else
+	if(key == '-'){
+		leftCorner -= 0.2f;
+		bottom -= 0.2f;
+
+		//rightCorner += 0.2;
+	}else//Change RGB
+	if(key == 'r'){ //Red levels
+		ambient0[0]  += 0.1f;
+		diffuse0[0]  += 0.15f;
+		specular0[0] += 0.30f;
+		diffuse1[0]  += 0.2f;
+		ambient1[0]  += 0.1f;
+		specular1[0] += 0.2f;
+		ambient[0]   += 0.15f;
+		diffuse[0]	 += 0.1f;
+		specular[0]  += 0.3f;
+
+	}else
+	if(key == 'g'){ //Green levels
+		ambient0[1]  += 0.1f;
+		diffuse0[1]  += 0.15f;
+		specular0[1] += 0.30f;
+		diffuse1[1]  += 0.2f;
+		ambient1[1]  += 0.1f;
+		specular1[1] += 0.2f;
+		ambient[1]   += 0.15f;
+		diffuse[1]	 += 0.1f;
+		specular[1]  += 0.3f;
+	}else
+	if(key == 'b'){ //Blue levels
+		ambient0[2]  += 0.1f;
+		diffuse0[2]  += 0.15f;
+		specular0[2] += 0.30f;
+		diffuse1[2]  += 0.2f;
+		ambient1[2]  += 0.1f;
+		specular1[2] += 0.2f;
+		ambient[2]   += 0.15f;
+		diffuse[2]	 += 0.1f;
+		specular[2]  += 0.3f;
+	}else
+	if(key == 'a'){ //Ambient levels
+		ambient0[3]  += 0.1f;
+		diffuse0[3]  += 0.15f;
+		specular0[3] += 0.30f;
+		diffuse1[3]  += 0.2f;
+		ambient1[3]  += 0.1f;
+		specular1[3] += 0.2f;
+		ambient[3]   += 0.15f;
+		diffuse[3]	 += 0.1f;
+		specular[3]  += 0.3f;
 	}
 	/*End of obj moving*/
     //Aspect ration, 
