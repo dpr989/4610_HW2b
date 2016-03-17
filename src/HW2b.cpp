@@ -1,6 +1,7 @@
 //#define WIN32
 
 #include <stdio.h>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -120,12 +121,34 @@ void drawPolygons(){
 	glBegin(GL_TRIANGLES);
 		for (int i = 0; i<faces.size(); i++)
 		{
+			glNormal3fv(vnormals[faces[i][0] - 1]);
 			glVertex3fv(vertices[faces[i][0] - 1]);
+			glNormal3fv(vnormals[faces[i][1] - 1]);
 			glVertex3fv(vertices[faces[i][1] - 1]);
+			glNormal3fv(vnormals[faces[i][2] - 1]);
 			glVertex3fv(vertices[faces[i][2] - 1]);
 
 			//Calc normal vectors
-			
+			GLfloat v1_x = vertices[faces[i][1] - 1][0] - vertices[faces[i][0] - 1][0];
+			GLfloat v1_y = vertices[faces[i][1] - 1][1] - vertices[faces[i][0] - 1][1];
+			GLfloat v1_z = vertices[faces[i][1] - 1][2] - vertices[faces[i][0] - 1][2]; 
+
+			GLfloat v2_x = vertices[faces[i][2] - 1][0] - vertices[faces[i][0] - 1][0];
+			GLfloat v2_y = vertices[faces[i][2] - 1][1] - vertices[faces[i][0] - 1][1];
+			GLfloat v2_z = vertices[faces[i][2] - 1][2] - vertices[faces[i][0] - 1][2]; 
+			//cout << "v1:"<<v1_x<<","<<v1_y<<","<<v1_z<<endl<<i<<endl;
+			//(y1z2 - z1y2)x + (z1x2 - x1z2)y + (x1y2 - y1x2)z
+			GLfloat vf_x = (v1_y * v2_z - v1_z * v2_y);
+			GLfloat vf_y = (v1_z * v2_x - v1_x * v2_z);
+			GLfloat vf_z = (v1_x * v2_y - v1_y * v2_x);
+
+			//Calc mag of vect
+			GLfloat v = sqrt(pow(vf_x,2) + pow(vf_y,2) + pow(vf_z,2));
+
+			GLfloat normal[] = {vf_x/v,vf_y/v,vf_z/v}; 
+
+			//cout << "n:"<<normal[0]<< "," <<normal[1]<<","<<normal[2]<<endl;
+
 		}
 	glEnd();
 }
@@ -190,10 +213,12 @@ void parseObjFile(FILE* input){
 	}else{
 		scale_factor = lenz;
 	}
+	
 	//cout << "\nThe max x:" << maxx << endl <<"The max y:"<< maxy << endl << "The max z:" << maxz << endl;
 	//cout << "\nThe min x:" << minx << endl <<"The min y:"<< miny << endl << "The min z:" << minz << endl;
 	fclose(input);
 }
+
 GLfloat objCent_x = 0;
 GLfloat objCent_y = 0;
 GLfloat objCent_z = 0;
