@@ -32,6 +32,7 @@ endif(NOT OPENGL_FOUND)
 # Include Files
 #########################################################
 add_executable(${PROJECT_NAME} src/${PROJECT_NAME}.cpp)
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_range_for)
 #add_executable(${PROJECT_NAME}2 src/${PROJECT_NAME}2.cpp)
 #add_executable(${PROJECT_NAME}3 src/${PROJECT_NAME}3.cpp)
 

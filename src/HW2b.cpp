@@ -5,8 +5,11 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <climits>
 #include <GL/glut.h>
+#include <sys/stat.h>
 
+#define VIEWING_DISTANCE_MIN  3.0
 using namespace std;
 
 void parseObjFile(FILE* input);
@@ -18,15 +21,44 @@ std::vector<GLint*> faces;
 int count = 0;
 float g_rotation = 0;
 float g_rotation_speed = 0.2f;
-string display_type = "l";
+
+static GLfloat g_fViewDistance =  VIEWING_DISTANCE_MIN;
+static int g_yClick = 0;
+
+GLfloat scale_factor = 1.0;
+string display_type = "";
+
+//File IO vars
+FILE* objectFile = NULL;
+string filename;
+
+//Object center
+int objCenter[] = {0,0,0};
 
 //Vars for tracking the xyz min/max
-int maxx = 0;
-int maxy = 0;
-int maxz = 0;
-int minx = 0;
-int miny = 0;
-int minz = 0;
+long maxx = LONG_MIN;
+long maxy = LONG_MIN;
+long maxz = LONG_MIN;
+long minx = LONG_MAX;
+long miny = LONG_MAX;
+long minz = LONG_MAX;
+
+//Position of mouse
+int oldX;
+int oldY;
+int vdist;
+int hdist;
+
+//State of mouse click 
+bool LeftIsPressed = false;
+bool RightIsPressed = false;
+
+//Vertical rotation
+int hrotate = 0;
+int vrotate = 0;
+
+GLfloat zoom_factor = 1;
+static GLfloat moveCords[] = {0.0,0.0,0.0};
 
 struct glutWindow{
 	int width;
@@ -78,8 +110,8 @@ void parseObjFile(FILE* input){
 	char c;
 	GLfloat f1, f2, f3, *arrayfloat;
 	GLint d1, d2, d3, *arrayint;
-	size_t min = SIZE_MAX;
 	
+	//Read to end of input and find min/max for each component
 	while (!feof(input)){
 		fscanf(input, "%c", &c);
 		if (c == 'v') {
@@ -118,15 +150,30 @@ void parseObjFile(FILE* input){
 				faces.push_back(arrayint);
 			}
 	}
-	cout << "\nThe max x:" << maxx << endl <<"The max y:"<< maxy << endl << "The max z:" << maxz << endl;
-	cout << "\nThe min x:" << minx << endl <<"The min y:"<< miny << endl << "The min z:" << minz << endl;
+	//Find the max length
+	GLfloat lenx = maxx-minx;
+	GLfloat leny = maxy-miny;
+	GLfloat lenz = maxz-minz;
+
+	if(lenx > leny){
+		if(lenx > lenz){
+			scale_factor = lenx;
+		}
+	}else if(leny > lenz){
+		scale_factor = leny;
+	}else{
+		scale_factor = lenz;
+	}
+	//cout << "\nThe max x:" << maxx << endl <<"The max y:"<< maxy << endl << "The max z:" << maxz << endl;
+	//cout << "\nThe min x:" << minx << endl <<"The min y:"<< miny << endl << "The min z:" << minz << endl;
 	fclose(input);
 }
 
 void display(void){
-	glClearColor(0.0,0.0,1.0,0.0); //Set clear color to blue
+	glClearColor(1.0,1.0,1.0,0.0); //Set clear color to blue
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Clear color buffer and depth buffer
 	glMatrixMode(GL_MODELVIEW);
+	
 	//Draw Coordinate System
 	if(1){
 		//Draw enpoints and origin
@@ -159,28 +206,37 @@ void display(void){
 	}
 	
 	glLoadIdentity();
-	gluLookAt(45,0,0, 0,0,0, 0,0,1);
-
-	//glMatrixMode(GL_MODELVIEW);
-	cout << "Center of object:"<<(maxx+minx)/2<<", "<<(maxy+miny)/2<<", "<<(maxz+minz)/2<<endl;
-	glBegin(GL_POINTS);
-		glVertex3f((maxx+minx)/2,(maxy+miny)/2,(maxz+minz)/2);
-	glEnd();
-
-	glPushMatrix();										
+	
+	//Save current matrix state
+	glPushMatrix();	
+		//Set cube color to RED							
 		glColor3f(1,0,0);
 		
-		//glScalef(0.5,0.5,0.5);
-		glTranslatef(-((maxx+minx)/2),-((maxy+miny)/2),-((maxz+minz)/2));
-		//cout <<endl<<"Translated x:"<<-((maxx+minx)/2)<<endl<<"Translated y:"<<-(maxy-miny)/2<<endl<<"Translated z:"<<-(maxz-minz)/2<<endl<<count;
+		//Scale object by the size of the largest line segment. Calc in parseObj()
+		glScalef(1/scale_factor,1/scale_factor,1/scale_factor);
 		
-		if(display_type.compare("p")==0){
+		//Zoom in as needed
+		glScalef(g_fViewDistance,g_fViewDistance,g_fViewDistance);
+		
+		//Rotate in the x direction
+		glRotatef(hrotate,1,0,0);
+
+		//Rotate in the y direction
+		glRotatef(vrotate,0,1,0);
+
+		//Translate the object to the origin
+		glTranslatef(-((maxx+minx)/2),-((maxy+miny)/2),-((maxz+minz)/2));
+		
+		//
+		//glTranslatef(moveCords[0],moveCords[1],moveCords[2]);
+
+		if(display_type.compare("q")==0){
 			drawPoints();
 		}
-		else if(display_type.compare("l")==0){
+		else if(display_type.compare("w")==0){
 			drawLines();
 		}
-		else if(display_type.compare("t")==0){
+		else if(display_type.compare("e")==0){
 			drawPolygons();
 		}
 		else{
@@ -188,31 +244,35 @@ void display(void){
 		}
 		
 	glPopMatrix();
-	g_rotation += g_rotation_speed;
+	glFlush();
 	glutSwapBuffers();
 }
-
 
 void init(string filename) {
 	//Select projection matrix
 	glMatrixMode(GL_PROJECTION);
-	//Set viewport
+	//Set viewport: The final image projected down onto the display
 	glViewport(0,0,win.width, win.height);
 	
 	//Reset projection matrix
 	glLoadIdentity();
+	//Calculate aspect ratio, ex 16:9 (ratio of width to height)
 	GLfloat aspect = (GLfloat) win.width/win.height;
 	
 	//Setup a perspective projection matrix
-	gluPerspective(win.field_of_view_angle, aspect, win.z_near, win.z_far);
+	gluPerspective(80/*win.field_of_view_angle*/, aspect, win.z_near, win.z_far);
 	
+	//Look at origin (0,0,0) 
+	//Put the camera 20 units down the x axis (20,0,0)//
+	gluLookAt(1,0,-20, 0,0,0, 0,0,1);
+
 	//Specify with matrix is the current matrix
 	glMatrixMode(GL_MODELVIEW);
 	glShadeModel(GL_SMOOTH);
 	glClearDepth(1.0f);
 	glEnable(GL_DEPTH_TEST);
    	glDepthFunc( GL_LEQUAL );
- 	glPointSize(10);
+ 	
 
 	//Open file and fill data structures
 	FILE* objectFile = fopen(filename.c_str(),"r");
@@ -220,22 +280,101 @@ void init(string filename) {
 }
 
 void processKeys(unsigned char key, int x, int y) {
-	if (key == 'a')
-	// your code here
+	//Points
+	//cout << "Processkeys: We have arrived! " << endl;
+	if (key == 'q'){
+		display_type = "q";
+	}
+	//Wireframe
+	else 
+		if(key == 'w'){
+			display_type = "w";
+		}
+		//Polygons
+		else 
+			if(key == 'e'){
+				display_type = "e";
+			}
+			else
+				if(key == 'o'){ //moveCords obj away
+					moveCords[2] -= 0.2f; //Down -z axis
+				}else
+					 if(key == 'k'){ //Move obj <-
+					 	moveCords[1] -= 0.2f;
+					 }else
+					 	  if(key == 'l'){ // Move obj towards viewer
+					 	  	moveCords[2] += 0.2f;
+					 	  }else 
+					 	  	   if(key == ';'){ //Move obj ->
+					 	  	   		moveCords[1] += 0.2f;
+					 	  	   }
+	//Calls the display function again
 	glutPostRedisplay();
+}
+
+int mouseMax_x = INT_MIN;
+int mouseMin_x = INT_MAX;
+int mouseMax_y = INT_MIN;
+int mouseMin_y = INT_MAX;
+
+void drag(int x, int y){
+ 
+	if(LeftIsPressed){
+		
+	  	//Calc v/h dis
+	  	hdist = (x - oldX);
+	  	vdist = (y - oldY);
+	  	hrotate += hdist*0.05; //rotate by 10% of horizontal movement 
+	  	vrotate += vdist*0.05; //rotate by 10% of vert movement
+
+	  	//TEST
+	  	cout << "Left is pressed" << endl;
+	    glutPostRedisplay();
+    }else 
+    	if(RightIsPressed){
+    		//Zooming
+	    	g_fViewDistance = (y - oldY) / 3.0;
+	    	if (g_fViewDistance < VIEWING_DISTANCE_MIN)
+	    		g_fViewDistance = VIEWING_DISTANCE_MIN;
+
+	    	 glutPostRedisplay();
+    	}
+}
+
+//For keeping track of previous mouse state
+void processMouseClick(int button, int state, int x, int y){
+	if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
+        LeftIsPressed = (state == GLUT_DOWN) ? true : false;
+		RightIsPressed = false;
+	} 
+	
+	if(button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN){
+		RightIsPressed = (state == GLUT_DOWN) ? true : false;
+		LeftIsPressed = false;
+	}
+    
+    if(button == GLUT_MIDDLE_BUTTON && state == GLUT_DOWN){
+ 	  //TEST
+ 	  //cout << "processMouse:Middle button pressed" << endl;
+    }
+	oldX = x;
+    oldY = y;
 }
 
 int main(int argc, char** argv){
 	win.width = 700;
 	win.height = 700;
-	win.field_of_view_angle = 10;
-	win.z_near = 1.0f;
+	win.field_of_view_angle = 90;
+	win.z_near = 0.5f;
 	win.z_far = 500.0f;
-	string filename;
 	
+	//Set mouse state
+	oldX = 0;
+	oldY = 0;
+
 	if(argc > 2){
 		display_type = argv[1];
-		filename = argv[2];
+		
 	}else if(argc == 2){
 		filename = argv[1];
 	}
@@ -248,8 +387,12 @@ int main(int argc, char** argv){
   	glutInitWindowSize(win.width, win.width);
   	glutInitWindowPosition(200,1500);
   	glutCreateWindow("HW2");
+  	glutKeyboardFunc(processKeys);
+  	glutMouseFunc(processMouseClick);
+  	glutMotionFunc(drag);
   	glutDisplayFunc(display);
   	init(filename);
+
   	//glutReshapeFunc(reshape);
   	glutMainLoop();
   return 0;
