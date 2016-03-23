@@ -19,6 +19,8 @@ void parseObjFile(FILE* input);
 //Vectors for storing vertices
 std::vector<GLfloat*> vertices;
 std::vector<GLint*> faces;
+std::vector<GLfloat*> fnormals;
+//std::vector<GLfloat*> vnormals;
 
 float g_rotation = 0;
 float g_rotation_speed = 0.2f;
@@ -68,20 +70,7 @@ int vrotate = 0;
 GLfloat aspect;
 GLfloat field_of_view_angle = 90;
 
-//Light 1 settings
-GLfloat diffuse0[]={1.0, 0.0, 0.0, 1.0};
-GLfloat ambient0[]={1.0, 0.0, 0.0, 1.0};
-GLfloat specular0[]={1.0, 0.0, 0.0, 1.0}; 
-GLfloat light0_pos[]={1.0, 2.0, 3,0, 1.0}; 
-//Light 2 settings
-GLfloat diffuse1[]={1.0, 0.0, 0.0, 1.0};
-GLfloat ambient1[]={1.0, 0.0, 0.0, 1.0};
-GLfloat specular1[]={1.0, 0.0, 0.0, 1.0}; 
-GLfloat light1_pos[]={-1.0, 2.0, 3,0, 1.0}; 
 
-GLfloat ambient[] = {0.2, 0.2, 0.2, 1.0};
-GLfloat diffuse[] = {1.0, 0.8, 0.0, 1.0};
-GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
 
 //Window info
 struct glutWindow{
@@ -95,6 +84,7 @@ struct glutWindow{
 glutWindow win;
 
 void drawPoints(){
+	glPointSize(100.0f);
 	glBegin(GL_POINTS);
 		for (int i = 0; i<vertices.size(); i++)
 		{
@@ -104,6 +94,7 @@ void drawPoints(){
 }
 
 void drawLines(){
+	glPointSize(10.0f);
 	glBegin(GL_LINES);  // GL_LINE_STRIP
 		for (int i = 0; i<faces.size(); i++)
 		{
@@ -118,40 +109,65 @@ void drawLines(){
 }
 
 void drawPolygons(){
+	glPointSize(10.0f);
 	glBegin(GL_TRIANGLES);
 		for (int i = 0; i<faces.size(); i++)
 		{
-			glNormal3fv(vnormals[faces[i][0] - 1]);
+			glNormal3fv(fnormals[i]);
 			glVertex3fv(vertices[faces[i][0] - 1]);
-			glNormal3fv(vnormals[faces[i][1] - 1]);
+			//glNormal3fv(fnormals[i]);
 			glVertex3fv(vertices[faces[i][1] - 1]);
-			glNormal3fv(vnormals[faces[i][2] - 1]);
+			//glNormal3fv(fnormals[i]);
 			glVertex3fv(vertices[faces[i][2] - 1]);
-
-			//Calc normal vectors
-			GLfloat v1_x = vertices[faces[i][1] - 1][0] - vertices[faces[i][0] - 1][0];
-			GLfloat v1_y = vertices[faces[i][1] - 1][1] - vertices[faces[i][0] - 1][1];
-			GLfloat v1_z = vertices[faces[i][1] - 1][2] - vertices[faces[i][0] - 1][2]; 
-
-			GLfloat v2_x = vertices[faces[i][2] - 1][0] - vertices[faces[i][0] - 1][0];
-			GLfloat v2_y = vertices[faces[i][2] - 1][1] - vertices[faces[i][0] - 1][1];
-			GLfloat v2_z = vertices[faces[i][2] - 1][2] - vertices[faces[i][0] - 1][2]; 
-			//cout << "v1:"<<v1_x<<","<<v1_y<<","<<v1_z<<endl<<i<<endl;
-			//(y1z2 - z1y2)x + (z1x2 - x1z2)y + (x1y2 - y1x2)z
-			GLfloat vf_x = (v1_y * v2_z - v1_z * v2_y);
-			GLfloat vf_y = (v1_z * v2_x - v1_x * v2_z);
-			GLfloat vf_z = (v1_x * v2_y - v1_y * v2_x);
-
-			//Calc mag of vect
-			GLfloat v = sqrt(pow(vf_x,2) + pow(vf_y,2) + pow(vf_z,2));
-
-			GLfloat normal[] = {vf_x/v,vf_y/v,vf_z/v}; 
-
-			//cout << "n:"<<normal[0]<< "," <<normal[1]<<","<<normal[2]<<endl;
+			//cout << "faces["<<i<<"] = {"<< faces[i][0] << "," << faces[i][1] << "," << faces[i][2] <<"}"<< endl;
+			//TESTS
+			/*cout << endl <<"drawPolygons:fnormal"
+				 << fnormals[faces[i][0] - 1][0]
+				 << ","<<fnormals[faces[i][1] - 1][1]
+				 << ","<<fnormals[faces[i][2] - 1][2]<<endl;*/
+			//cout << endl <<"drawPolygons:Normal ="<<fnormals[i]<<endl;
+			//cout << "n:"<<fnormals[i][0]<< "," <<fnormals[i][1]<<","<<fnormals[i][2]<<endl;
 
 		}
 	glEnd();
 }
+
+class VnormalInfo{
+ 	public:
+ 		std::vector<GLint> adjacentCount = {0}; //Index = vertex number
+		std::vector<GLfloat*> vnormalVectors = {0};
+
+};
+
+GLfloat* getFaceNormal(int i){
+	//Calc normal vectors
+	GLfloat v1_x = vertices[faces[i][1] - 1][0] - vertices[faces[i][0] - 1][0];
+	GLfloat v1_y = vertices[faces[i][1] - 1][1] - vertices[faces[i][0] - 1][1];
+	GLfloat v1_z = vertices[faces[i][1] - 1][2] - vertices[faces[i][0] - 1][2]; 
+
+	GLfloat v2_x = vertices[faces[i][2] - 1][0] - vertices[faces[i][0] - 1][0];
+	GLfloat v2_y = vertices[faces[i][2] - 1][1] - vertices[faces[i][0] - 1][1];
+	GLfloat v2_z = vertices[faces[i][2] - 1][2] - vertices[faces[i][0] - 1][2]; 
+	//cout << "v1:"<<v1_x<<","<<v1_y<<","<<v1_z<<endl<<i<<endl;
+	//(y1z2 - z1y2)x + (z1x2 - x1z2)y + (x1y2 - y1x2)z
+	GLfloat vf_x = (v1_y * v2_z - v1_z * v2_y);
+	GLfloat vf_y = (v1_z * v2_x - v1_x * v2_z);
+	GLfloat vf_z = (v1_x * v2_y - v1_y * v2_x);
+
+	//Calc mag of vect
+	GLfloat v = sqrt(pow(vf_x,2) + pow(vf_y,2) + pow(vf_z,2));
+
+	GLfloat* normal = new GLfloat[3]; 
+	normal[0] = vf_x/v;
+	normal[1] = vf_y/v;
+	normal[2] = vf_z/v; 
+	//TEST
+	cout << endl <<"ParseObj:Normal ="<<normal[0]<<","<<normal[1]<<","<<normal[2]<<endl;
+	return normal;
+	//fnormals.push_back(normal);
+}
+
+VnormalInfo vnormals;
 
 void parseObjFile(FILE* input){
 	faces.clear();
@@ -213,8 +229,38 @@ void parseObjFile(FILE* input){
 	}else{
 		scale_factor = lenz;
 	}
+	//Calculate each normal
+	for(int k = 0; k < face.size(); k++){
+		GLfloat* normal = getFaceNormal(i);
+		fnormals.push_back(normal);
+	}
 	
-	//cout << "\nThe max x:" << maxx << endl <<"The max y:"<< maxy << endl << "The max z:" << maxz << endl;
+
+	for (int i = 0; i<faces.size(); i++)  
+	{		
+		//vnormals.vnormalVectors[i].push_back({0.0,0.0,0.0});
+		
+		for(int j=1; j<faces.size(); j++){
+			 
+			//TEST
+			///cout << normal[0]<<normal[1]<<normal[2]<<endl;
+			//if( ( (faces[i][0] == faces[j][0]) && (faces[i] == faces[j]) ){ //if any face
+				// vnormals.adjacentCount[i]++;
+				// vnormals.vnormalVectors[i][0] += normal[0];
+				  //vnormals.vnormalVectors[i][1] += normal[1];
+				// vnormals.vnormalVectors[i][2] += normal[2];
+				// cout << "v#"<< i << endl << "f#"<< j <<"vx="<<vertices[i][0]<<"vy="<<vertices[i][1]<<"vz="<<vertices[i][2];
+			// }
+		}
+		//Divide each comp of the calc vertex normal by the number of normals
+		// vnormals.vnormalVectors[i][0] /= vnormals.adjacentCount[i];
+		// vnormals.vnormalVectors[i][1] /= vnormals.adjacentCount[i];
+		// vnormals.vnormalVectors[i][2] /= vnormals.adjacentCount[i];
+	}
+
+
+
+	// cout << "\nThe max x:" << maxx << endl <<"The max y:"<< maxy << endl << "The max z:" << maxz << endl;
 	//cout << "\nThe min x:" << minx << endl <<"The min y:"<< miny << endl << "The min z:" << minz << endl;
 	fclose(input);
 }
@@ -232,18 +278,12 @@ void display(void){
 	glClearColor(0,0,0,0.0); //Set clear color 	to blue
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //Clear color buffer and depth buffer
-	
-	//Set up aspect and field of view
-	glPushMatrix();
-	//glMatrixMode (GL_PROJECTION);
-   	//glLoadIdentity ();
-   	//glFrustum (leftCorner,rightCorner,bottom,top,win.z_near,win.z_far);
-	//glMatrixMode(GL_MODELVIEW);
-	glPopMatrix();
-	
+	glMatrixMode(GL_MODELVIEW);
+	glPointSize(10.0);
 	//Draw Coordinate System
 	if(1){
 		//Draw enpoints and origin
+		glPointSize(10.0);
 		glBegin(GL_POINTS); // render with points
 			glColor3f(1,0,1);
 			glVertex3i(0,0,0); //display a point
@@ -256,6 +296,7 @@ void display(void){
 		glEnd();
 	
 		//Draw coordinate lines
+		glPointSize(10.0);
 		glBegin(GL_LINES);
 			//y coordinate
 			glColor3f(1,0,0);
@@ -276,8 +317,9 @@ void display(void){
 	
 	//Save current matrix state
 	glPushMatrix();	
+
 		//Set cube color to RED							
-		glColor3f(1,0,0);
+		glColor3f(0.5,1,0);
 		
 		//Scale object by the size of the largest line segment. Calc in parseObj()
 		glScalef(1/scale_factor,1/scale_factor,1/scale_factor);
@@ -297,7 +339,7 @@ void display(void){
 		
 		//move the object around
 		glTranslatef(moveCords[0],moveCords[1],moveCords[2]);
-
+		
 		if(display_type.compare("q")==0){
 			drawPoints();
 		}
@@ -310,12 +352,27 @@ void display(void){
 		else{
 			drawPolygons();
 		}
-
+	//glEnable(GL_NORMALIZE);
 	glPopMatrix();
 	
 	glFlush();
 	glutSwapBuffers();
 }
+
+//Light 1 settings
+GLfloat diffuse0[]={1.0, 0.0, 0.0, 0.7};
+GLfloat ambient0[]={1.0, 0.0, 0.0, 0.6};
+GLfloat specular0[]={1.0, 0.0, 0.0, 0.5}; 
+GLfloat light0_pos[]={1.0, 2.0, 3.0, 1.0}; 
+//Light 2 settings
+GLfloat diffuse1[]={1.0, 0.0, 0.0, 0.5};
+GLfloat ambient1[]={1.0, 0.0, 0.0, 0.5};
+GLfloat specular1[]={1.0, 0.0, 0.0, 0.5}; 
+GLfloat light1_pos[]={-1.0, 2.0, 3,0, 1.0}; 
+
+GLfloat ambient[] = {0.2, 0.2, 0.2, 0.5};
+GLfloat diffuse[] = {1.0, 0.8, 0.0, 1.0};
+GLfloat specular[] = {1.0, 1.0, 1.0, 1.0};
 
 void init(string filename) {
 	//Select projection matrix
@@ -330,18 +387,19 @@ void init(string filename) {
 	
 	//Setup a perspective projection matrix
 	gluPerspective(field_of_view_angle, aspect, win.z_near, win.z_far);
-	
 	//Look at origin (0,0,0) 
 	//Put the camera 20 units down the x axis (20,0,0)//
 	gluLookAt(1,0,-10, 0,0,0, 0,0,1);
 
 	//Specify with matrix is the current matrix
 	glMatrixMode(GL_MODELVIEW);
-	glShadeModel(GL_SMOOTH);
+	glShadeModel(GL_FLAT);
 	glClearDepth(1.0f);
 	glEnable(GL_DEPTH_TEST);
    	glDepthFunc( GL_LEQUAL );
  	
+ 	//Point info
+ 	glEnable(GL_POINT_SMOOTH);
    	//Lighting stuff
    	glEnable(GL_LIGHTING);
    	glEnable(GL_COLOR_MATERIAL);
@@ -359,8 +417,8 @@ void init(string filename) {
 	glLightfv(GL_LIGHT0, GL_SPECULAR, specular1);
 
 
-	GLfloat shine = 100.0;
-
+	GLfloat shine = 50.0;
+	//Material color
 	glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
@@ -425,11 +483,11 @@ void processKeys(unsigned char key, int x, int y) {
 	}else
 	if(key == ' '){
 		if(lightsOn){
-			glDisable(GL_LIGHTING);
+			glDisable(GL_LIGHT0);
 			glFlush();
 			lightsOn = false;
 		}else{
-			glEnable(GL_LIGHTING);
+			glEnable(GL_LIGHT0);
 			lightsOn = true;
 		}
 	}else
@@ -574,3 +632,13 @@ int main(int argc, char** argv){
   	glutMainLoop();
   return 0;
 }
+
+// ASSIGNMENT 3b notes /*
+/*
+	NEED:
+		cimig - add cmig.h to project
+			"using namespace cimg_library"
+			CImg<unsigned char
+	1.)Need to read picture in as shade
+	2.)
+*/
